@@ -1,4 +1,5 @@
 import { formatEther, parseEther } from 'viem'
+import { gwyneth } from './gwyneth'
 import {
   type BaseError,
   useAccount,
@@ -56,13 +57,30 @@ function Connect() {
   const connect = useConnect()
   const [connector] = connect.connectors
 
+  if (connect.error) {
+    console.error('connect.error', connect.error)
+    // @ts-expect-error – vite dev only
+    console.error('connect.error cause', connect.error.cause)
+    // @ts-expect-error – vite dev only
+    console.error('connect.error cause data', connect.error.cause?.data)
+    // @ts-expect-error – vite dev only
+    console.error('connect.error request', connect.error.request)
+  }
+
   return (
     <div>
       <h2>Connect</h2>
       <button
         onClick={() =>
           connect.connect({
+            chainId: gwyneth.id,
             connector,
+            capabilities: {
+              createAccount: {
+                chainId: gwyneth.id,
+              },
+              selectAccount: false,
+            },
           })
         }
         type="button"
