@@ -1,0 +1,19 @@
+%% Unsponsored transaction flow
+sequenceDiagram
+    actor User
+    participant Dialog as Porto Dialog
+    participant Relay as Porto Relay
+    participant Account as Ithaca Account
+    participant Chain as Gwyneth L1
+
+    User->>Dialog: sendCalls(calls)
+    Dialog-->>Relay: wallet_prepareCalls
+    Relay-->>Relay: Quote gas (payer = user AA)
+    Relay-->>Dialog: Return digest + fee meta
+    Dialog->>User: Prompt for WebAuthn signature
+    User-->>Dialog: Sign digest (AA key)
+    Dialog-->>Relay: wallet_sendPreparedCalls
+    Relay-->>Chain: Execute bundle (payer = user AA)
+    Chain-->>Relay: Receipt (gas deducted from AA)
+    Relay-->>Dialog: callsStatus = success
+    Dialog-->>User: Success + balance update

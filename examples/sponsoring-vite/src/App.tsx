@@ -1,4 +1,4 @@
-import { formatEther, parseEther } from 'viem'
+import { formatEther, parseEther, UserRejectedRequestError, zeroAddress } from 'viem'
 import { gwyneth } from './gwyneth'
 import {
   type BaseError,
@@ -56,6 +56,38 @@ function Account() {
 function Connect() {
   const connect = useConnect()
   const [connector] = connect.connectors
+  const { connectAsync } = connect
+
+  async function handleSignIn() {
+    if (!connector) return
+    if (!connectAsync) return
+    try {
+      await connectAsync({
+        chainId: gwyneth.id,
+        connector,
+        capabilities: {
+          selectAccount: true,
+        },
+      })
+    } catch (error) {
+      if (error instanceof UserRejectedRequestError) return
+      try {
+        await connectAsync({
+          chainId: gwyneth.id,
+          connector,
+          capabilities: {
+            createAccount: {
+              chainId: gwyneth.id,
+            },
+            selectAccount: false,
+          },
+        })
+      } catch (error_) {
+        if (error_ instanceof UserRejectedRequestError) return
+        throw error_
+      }
+    }
+  }
 
   if (connect.error) {
     console.error('connect.error', connect.error)
@@ -71,18 +103,12 @@ function Connect() {
     <div>
       <h2>Connect</h2>
       <button
-        onClick={() =>
-          connect.connect({
-            chainId: gwyneth.id,
-            connector,
-            capabilities: {
-              createAccount: {
-                chainId: gwyneth.id,
-              },
-              selectAccount: false,
-            },
+        onClick={() => {
+          void handleSignIn().catch((error) => {
+            if (error instanceof UserRejectedRequestError) return
+            console.error('Failed to sign in', error)
           })
-        }
+        }}
         type="button"
       >
         Sign in
@@ -137,6 +163,7 @@ function Mint() {
                 to: exp1Address,
               },
             ],
+            feeToken: zeroAddress,
           })
         }}
       >

@@ -1,6 +1,7 @@
 [submodule "contracts/account"]
 	path = contracts/account
-	url = https://github.com/ithacaxyz/account.git
+	url = https://github.com/adaki2004/account.git
+	branch = accept_sig_verif
 [submodule "contracts/demo/lib/forge-std"]
 	path = contracts/demo/lib/forge-std
 	url = https://github.com/foundry-rs/forge-std.git

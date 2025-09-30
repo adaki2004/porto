@@ -6,6 +6,16 @@ import { gwyneth } from './gwyneth.ts'
 const relayUrl = 'http://localhost:9119'
 const rpcUrl = 'http://localhost:32002'
 
+const merchantUrl = (() => {
+  const configured = import.meta.env.VITE_PORTO_MERCHANT_URL as
+    | string
+    | undefined
+  if (configured && configured.length > 0) return configured
+  if (typeof window !== 'undefined')
+    return new URL('/porto/merchant', window.location.origin).toString()
+  return '/porto/merchant'
+})()
+
 const webAuthn =
   typeof window !== 'undefined' &&
   typeof navigator !== 'undefined' &&
@@ -36,6 +46,7 @@ export const config = createConfig({
       mode: relay({
         webAuthn,
       }),
+      merchantUrl,
       relay: http(relayUrl),
     }),
   ],

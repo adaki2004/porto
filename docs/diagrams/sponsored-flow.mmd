@@ -1,0 +1,25 @@
+%% Sponsored transaction flow
+sequenceDiagram
+    actor User
+    participant Dialog as Porto Dialog
+    participant Merchant as Merchant Worker
+    participant Relay as Porto Relay
+    participant Funder as SimpleFunder
+    participant Account as Ithaca Account
+    participant Chain as Gwyneth L1
+
+    User->>Dialog: sendCalls(calls, merchantUrl)
+    Dialog-->>Merchant: wallet_prepareCalls
+    Merchant-->>Relay: Forward request (feePayer = merchant)
+    Relay-->>Merchant: Quote + digest
+    Merchant-->>Merchant: Sign feeSignature
+    Merchant-->>Dialog: feeSignature + context
+    Dialog->>User: Prompt for WebAuthn signature
+    User-->>Dialog: Sign digest (AA key)
+    Dialog-->>Relay: wallet_sendPreparedCalls
+    Relay-->>Funder: fund() (pull ETH)
+    Funder-->>Account: Transfer ETH for gas
+    Relay-->>Chain: Execute bundle (gas reimbursed)
+    Chain-->>Relay: Bundle success
+    Relay-->>Dialog: callsStatus = success
+    Dialog-->>User: Success + balance update
