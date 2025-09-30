@@ -169,3 +169,26 @@ Account expect.
 - Additional admin or session keys can be added or revoked after deployment via
   `authorizeKeys` / `revokeKeys` flows; the account simply keeps its key table in
   storage and validates signatures against it.
+
+### Resetting Passkeys During Local Development
+
+- Browsers treat `https://127.0.0.1:<port>` and `https://localhost:<port>` as
+  distinct WebAuthn Relying Parties. If you restart the demo with a new port or
+  profile, Chrome may reuse an old passkey and therefore an old Ithaca Account
+  address.
+- To start fresh, open `chrome://password-manager/passkeys` (or the OS passkey
+  manager on macOS) and delete the entries named `127.0.0.1`/`localhost` before
+  reconnecting.
+- Always choose “Select existing account” in the Porto dialog if you want to
+  reuse the already-upgraded account. Choosing “Create account” generates a new
+  address that must go through the upgrade flow again.
+- If the dialog never surfaces the upgrade step, use the helper in
+  `docs/ACCOUNT_UPGRADE.md` (paste it in the browser console) to run
+  `prepareUpgradeAccount`/`wallet_upgradeAccount` manually. Verify the account is
+  deployed with `cast code <address> --rpc-url http://localhost:32002` before
+  retriggering the mint.
+- Quotes from the relay expire quickly (≈30 seconds). If you take too long to
+  approve the passkey prompt, `relay_sendPreparedCalls` returns
+  `quote expired` and the upgrade pre-call never executes. Retry immediately to
+  fetch a fresh quote, or request the faucet first so you can approve without
+  delay.

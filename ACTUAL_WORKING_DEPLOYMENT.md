@@ -47,7 +47,7 @@ pnpm build:contracts                          # regenerates _generated/contracts
 pnpm deploy:gwyneth                           # deploys everything to chain 160010
 ```
 
-If Foundry refuses to rebuild, force it once first:  
+If Foundry refuses to rebuild, force it once first then deploy:
 `forge build --force --config-path ./contracts/account/foundry.toml`.
 
 Verify the deployed IthacaAccount matches your local build length:
@@ -175,30 +175,6 @@ VITE_PORTO_MERCHANT_URL=http://localhost:8787/porto/merchant
 Restart the Vite dev server after changing the env file; Wrangler picks up env
 changes automatically.
 
-If macOS prevents the local runtime from starting, deploy the worker to Cloudflare instead:
-
-```bash
-pnpm wrangler deploy --name porto-merchant-local \
-  --var MERCHANT_ADDRESS=$MERCHANT_ADDRESS \
-  --var MERCHANT_PRIVATE_KEY=$MERCHANT_PRIVATE_KEY \
-  --var MERCHANT_RELAY_URL=http://localhost:9119
-```
-
-Use the printed `workers.dev` URL in `VITE_PORTO_MERCHANT_URL` (append `/porto/merchant`).
-
-Start the Vite example from the same Node 22 shell:
-
-```bash
-pnpm --filter sponsoring-vite-example dev -- --host --https
-
-After redeploying contracts, either rerun `pnpm build:contracts` or manually
-copy the fresh token addresses from `config/gwyneth-addresses.json` into
-`examples/sponsoring-vite/src/contracts.ts` (the app reads `exp1Address`).
-```
-
-UI lives on the port Vite prints (usually `http://localhost:4173`). Use it to
-connect, then attempt the noop operation, watching relay logs for activity.
-
 ---
 
 ## 6. Account upgrade + mint sanity check
@@ -220,14 +196,34 @@ connect, then attempt the noop operation, watching relay logs for activity.
    balance widget increments by 100 within ~2 seconds.
 
 If minting ever reverts:
-
+- Fund any freshly created smart account with at least `1 ether` *before* you
+  approve the mint. The upgrade pre-call executes inside the first
+  `wallet_prepareCalls` and the account must front the gas before the relayer
+  reimburses from `SimpleFunder`.
 - Ensure Wrangler is forwarding to `http://localhost:9119` (logs note the RPC
   URL).
 - Make sure `exp1Address` in the example matches the deployed demo token.
 - Confirm the merchant address still holds ETH: `cast balance
   $MERCHANT_ADDRESS --rpc-url http://localhost:32002`.
-- If the account lost state, re-run the upgrade flow and wait for the bundle to
-  finalize before retrying.
+- The relay quote only lives ~30 seconds. If you wait too long to approve the
+  WebAuthn prompt, `relay_sendPreparedCalls` returns `quote expired` and the
+  upgrade never lands. Simply retry the mint immediately to fetch a fresh quote.
+- You can fund the account from your deployer by running:
+
+  ```bash
+  source .env.gwyneth
+  cast send <ACCOUNT_ADDRESS> \
+    --value 1ether \
+    --rpc-url http://localhost:32002 \
+    --private-key "$DEPLOYER_PRIVATE_KEY"
+  ```
+
+- Double-check the merchant worker is pointing at the same relay and funder. A
+  mismatched `MERCHANT_RELAY_URL` or stale `.env` will sign the fee but quote
+  against a different token, returning `PaymentError`.
+- If you tweak the fee token address, redeploy the funder or regenerate the
+  merchant `.env` (`scripts/setup-merchant.sh`) so the worker/relay agree on the
+  token to reimburse.
 
 ---
 
@@ -239,6 +235,11 @@ If minting ever reverts:
   you want a fresh sponsor EOA.
 - `wallet_upgradeAccount` is stable once Multicall3 exists at
   `0xcA11…CA11`.
+- If the relay shows `PaymentError(PaymentError)` even after the upgrade,
+  inspect `wallet_prepareCalls` responses (you can replay the merchant request
+  with `curl`). If the `assetDiffs` block lists a deficit for the fee token, the
+  sponsor path is missing funds or pointing at the wrong asset. Refill the
+  funder or fix the configured fee token before retrying.
 
 ---
 
