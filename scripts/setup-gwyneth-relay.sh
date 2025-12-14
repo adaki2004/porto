@@ -33,6 +33,8 @@ START_INDEX=0
 PREFUND_AMOUNT="0"
 PRINT_SIGNERS=false
 DRY_RUN=false
+GAS_PRICE=${RELAY_GAS_PRICE:-"1gwei"}
+GAS_LIMIT_CONTRACT=${RELAY_GAS_LIMIT_CONTRACT:-"5000000"}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -111,31 +113,60 @@ if [[ $DRY_RUN == true ]]; then
   echo "--- DRY RUN ---"
 fi
 
-# 1. Register orchestrator
-if [[ $DRY_RUN == true ]]; then
-  echo "cast send --rpc-url $RPC_URL --private-key *** $FUNDER setOrchestrators([${ORCHESTRATOR}], true)"
-else
-  echo "Setting orchestrator on SimpleFunder..."
-  cast send \
+send_and_check() {
+  local to="$1"
+  shift
+
+  if [[ $DRY_RUN == true ]]; then
+    echo "cast send --rpc-url $RPC_URL --private-key *** --legacy --gas-price $GAS_PRICE --gas-limit $GAS_LIMIT_CONTRACT $to $*"
+    return 0
+  fi
+
+  local out tx_hash status
+  out=$(cast send \
     --rpc-url "$RPC_URL" \
     --private-key "$DEPLOYER_PRIVATE_KEY" \
-    "$FUNDER" \
-    "setOrchestrators(address[],bool)" "[$ORCHESTRATOR]" true
-fi
+    --legacy \
+    --gas-price "$GAS_PRICE" \
+    --gas-limit "$GAS_LIMIT_CONTRACT" \
+    --json \
+    "$to" \
+    "$@")
+
+  tx_hash=$(echo "$out" | jq -r '.transactionHash // empty')
+  if [[ -z "$tx_hash" || "$tx_hash" == "null" ]]; then
+    echo "Error: failed to parse transactionHash from cast output:" >&2
+    echo "$out" >&2
+    exit 1
+  fi
+
+  status=$(cast receipt --rpc-url "$RPC_URL" "$tx_hash" | awk '/^status/{print $2}')
+  if [[ "$status" != "1" ]]; then
+    echo "Error: transaction failed (status=$status) tx=$tx_hash" >&2
+    echo "debug_traceTransaction(callTracer):" >&2
+    curl -s -X POST -H 'Content-Type: application/json' \
+      --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"debug_traceTransaction\",\"params\":[\"$tx_hash\", {\"tracer\":\"callTracer\"}]}" \
+      "$RPC_URL" >&2 || true
+    echo >&2
+    exit 1
+  fi
+
+  echo "ok tx=$tx_hash"
+}
+
+# 1. Register orchestrator
+echo "Setting orchestrator on SimpleFunder..."
+send_and_check \
+  "$FUNDER" \
+  "setOrchestrators(address[],bool)" "[$ORCHESTRATOR]" true
 
 # 2. Register gas wallets
 JOINED_SIGNERS=$(printf '%s,' "${SIGNER_ADDRESSES[@]}")
 JOINED_SIGNERS=${JOINED_SIGNERS%,}
-if [[ $DRY_RUN == true ]]; then
-  echo "cast send --rpc-url $RPC_URL --private-key *** $FUNDER setGasWallet([$JOINED_SIGNERS], true)"
-else
-  echo "Registering gas wallets..."
-  cast send \
-    --rpc-url "$RPC_URL" \
-    --private-key "$DEPLOYER_PRIVATE_KEY" \
-    "$FUNDER" \
-    "setGasWallet(address[],bool)" "[$JOINED_SIGNERS]" true
-fi
+echo "Registering gas wallets..."
+send_and_check \
+  "$FUNDER" \
+  "setGasWallet(address[],bool)" "[$JOINED_SIGNERS]" true
 
 # 3. Prefund signers if requested
 if [[ "$PREFUND_AMOUNT" != "0" ]]; then
@@ -147,6 +178,8 @@ if [[ "$PREFUND_AMOUNT" != "0" ]]; then
       cast send \
         --rpc-url "$RPC_URL" \
         --private-key "$DEPLOYER_PRIVATE_KEY" \
+        --legacy \
+        --gas-price "$GAS_PRICE" \
         "$addr" \
         --value "${PREFUND_AMOUNT}ether"
     done
