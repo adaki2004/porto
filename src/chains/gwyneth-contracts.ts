@@ -1,5 +1,5 @@
 // Gwyneth Network Contract Addresses
-// Generated on 2025-09-29T14:06:02.148Z
+// Generated on 2025-12-14T01:48:49.144Z
 // Chain ID: 160010
 
 export const gwynethContracts = {
