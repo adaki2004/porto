@@ -10,6 +10,10 @@ server:
 chains:
   "160010":
     endpoint: http://host.docker.internal:32002
+    # When running against a Gwyneth node with the in-node AA pool, delegate only raw tx submission
+    # to the Gwyneth router so intents stay private and are sequenced by ULTRA.
+    eth_send_raw_delegates:
+      - http://host.docker.internal:32005
     assets:
       ethereum:
         address: "0x0000000000000000000000000000000000000000"

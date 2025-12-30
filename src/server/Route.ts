@@ -3,7 +3,7 @@ import { cors } from 'hono/cors'
 import { poweredBy } from 'hono/powered-by'
 import type { BlankEnv, BlankSchema, Schema as hono_Schema } from 'hono/types'
 import type * as Address from 'ox/Address'
-import type * as Hex from 'ox/Hex'
+import * as Hex from 'ox/Hex'
 import * as RpcResponse from 'ox/RpcResponse'
 import * as TypedData from 'ox/TypedData'
 import { createClient, rpcSchema } from 'viem'
@@ -118,6 +118,10 @@ export function merchant(options: merchant.Options) {
     transport: relay,
   })
 
+  // Cache relay upgrade attempts per chain to avoid redundant storage writes.
+  // Note: this is process-local (or worker isolate-local).
+  const ensuredFeePayerByChain = new Map<number, Promise<void>>()
+
   const fromKey = (() => {
     if (typeof options.key === 'string') return undefined
     if (options.key.type === 'secp256k1') return Key.fromSecp256k1
@@ -129,6 +133,15 @@ export function merchant(options: merchant.Options) {
     : Key.fromSecp256k1({
         privateKey: options.key as Hex.Hex,
       })
+
+  if (
+    key.type === 'secp256k1' &&
+    key.publicKey.toLowerCase() !== (address as string).toLowerCase()
+  ) {
+    throw new Error(
+      `merchant key/address mismatch: MERCHANT_ADDRESS=${address}, but MERCHANT_PRIVATE_KEY resolves to ${key.publicKey}`,
+    )
+  }
 
   const router = from({ basePath })
 
@@ -163,6 +176,103 @@ export function merchant(options: merchant.Options) {
         })()
 
         try {
+          // Sponsored flows set `feePayer` to the merchant address. The relay requires
+          // the fee payer to be a delegated (EIP-7702) Ithaca account for
+          // `Orchestrator._pay()` to work, otherwise quoting can revert with
+          // `PaymentError()` (0xabab8fc9).
+          //
+          // To keep the "local shortcut" smooth, ensure the merchant account has
+          // a stored authorization + pre-call in the relay before we ask it to quote.
+          const ensureFeePayerDelegated = async () => {
+            if (!sponsor) return
+            if (key.type !== 'secp256k1') return
+
+            const chainIdHex = request.params[0]!.chainId.toLowerCase() as Hex.Hex
+            const chainId = Number(Hex.toBigInt(chainIdHex))
+            if (!Number.isFinite(chainId) || chainId <= 0) return
+
+            const cached = ensuredFeePayerByChain.get(chainId)
+            if (cached) return cached
+
+            const task = (async () => {
+              // Fast-path: already stored.
+              try {
+                await client.request({
+                  method: 'wallet_getAuthorization',
+                  params: [{ address }],
+                } as any)
+                return
+              } catch {
+                // Continue with bootstrap.
+              }
+
+              const capabilities = (await client.request({
+                method: 'wallet_getCapabilities',
+                params: [[chainId]],
+              } as any)) as any
+
+              const chainCaps = capabilities?.[chainIdHex]
+              const delegation = chainCaps?.contracts?.accountProxy?.address
+              if (!delegation) {
+                throw new Error(
+                  `relay capabilities missing accountProxy for chainId=${chainIdHex}`,
+                )
+              }
+
+              const authorizeKey = {
+                expiry: 0,
+                type: 'secp256k1',
+                role: 'admin',
+                publicKey: Key.serializePublicKey(key.publicKey),
+                permissions: [],
+              }
+
+              const prep = (await client.request({
+                method: 'wallet_prepareUpgradeAccount',
+                params: [
+                  {
+                    address,
+                    chainId,
+                    delegation,
+                    capabilities: { authorizeKeys: [authorizeKey] },
+                  },
+                ],
+              } as any)) as any
+
+              const auth = await Key.sign(key, {
+                address: null,
+                payload: prep.digests.auth,
+                wrap: false,
+              })
+              const exec = await Key.sign(key, {
+                address: null,
+                payload: prep.digests.exec,
+                wrap: false,
+              })
+
+              await client.request({
+                method: 'wallet_upgradeAccount',
+                params: [{ context: prep.context, signatures: { auth, exec } }],
+              } as any)
+            })()
+
+            ensuredFeePayerByChain.set(chainId, task)
+            try {
+              await task
+            } catch (err) {
+              ensuredFeePayerByChain.delete(chainId)
+              throw err
+            }
+          }
+
+          await ensureFeePayerDelegated()
+
+          const requiredFunds =
+            request.params[0]!.capabilities.requiredFunds &&
+            request.params[0]!.capabilities.requiredFunds.length === 0
+              ? undefined
+              : request.params[0]!.capabilities.requiredFunds
+
           const result = await client.request({
             ...request,
             params: [
@@ -170,6 +280,7 @@ export function merchant(options: merchant.Options) {
                 ...request.params[0]!,
                 capabilities: {
                   ...request.params[0]!.capabilities,
+                  requiredFunds,
                   meta: {
                     ...request.params[0]!.capabilities.meta,
                     ...(sponsor

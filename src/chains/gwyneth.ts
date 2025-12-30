@@ -1,6 +1,12 @@
 import { defineChain } from 'viem'
 
 export const gwyneth = defineChain({
+  blockExplorers: {
+    default: {
+      name: 'Gwyneth Explorer',
+      url: 'http://localhost:32002',
+    },
+  },
   id: 160010,
   name: 'Gwyneth',
   nativeCurrency: {
@@ -11,12 +17,6 @@ export const gwyneth = defineChain({
   rpcUrls: {
     default: {
       http: ['http://localhost:32002'],
-    },
-  },
-  blockExplorers: {
-    default: {
-      name: 'Gwyneth Explorer',
-      url: 'http://localhost:32002',
     },
   },
   testnet: false,
