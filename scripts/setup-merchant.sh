@@ -2,11 +2,14 @@
 set -euo pipefail
 
 RPC_URL=${GWYNETH_RPC_URL:-http://localhost:32002}
-FUND_VALUE=${MERCHANT_FUND_VALUE:-1ether}
+FUND_VALUE=${MERCHANT_FUND_VALUE:-0.1ether}
 OUTPUT_FILE=${1:-examples/sponsoring-vite/.env}
 RELAY_URL=${MERCHANT_RELAY_URL:-http://localhost:9119}
-MERCHANT_API_URL=${VITE_PORTO_MERCHANT_URL:-http://localhost:8787/porto/merchant}
+# Optional override for the sponsoring-vite UI. If unset, the UI defaults to
+# `window.location.origin + /porto/merchant` (recommended with `USE_CLOUDFLARE_PLUGIN=true`).
+MERCHANT_API_URL=${VITE_PORTO_MERCHANT_URL:-}
 DEV_VARS_FILE="$(dirname "$OUTPUT_FILE")/.dev.vars"
+FUNDER_PRIVATE_KEY=${MERCHANT_FUNDER_PRIVATE_KEY:-${DEPLOYER_PRIVATE_KEY:-}}
 
 if ! command -v cast >/dev/null 2>&1; then
   echo "cast is required (foundry)." >&2
@@ -18,8 +21,8 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 1
 fi
 
-if [ -z "${DEPLOYER_PRIVATE_KEY:-}" ]; then
-  echo "DEPLOYER_PRIVATE_KEY is not set. Export it or add it to .env.gwyneth." >&2
+if [ -z "${FUNDER_PRIVATE_KEY:-}" ]; then
+  echo "Missing funding key. Set MERCHANT_FUNDER_PRIVATE_KEY (preferred) or DEPLOYER_PRIVATE_KEY." >&2
   exit 1
 fi
 
@@ -37,16 +40,28 @@ if [ -z "$merchant_address" ] || [ -z "$merchant_private" ]; then
   exit 1
 fi
 
-cast send \
+funder_address=$(cast wallet address --private-key "$FUNDER_PRIVATE_KEY")
+echo "Funding merchant from $funder_address..."
+fund_out=$(cast send \
   --rpc-url "$RPC_URL" \
-  --private-key "$DEPLOYER_PRIVATE_KEY" \
+  --private-key "$FUNDER_PRIVATE_KEY" \
+  --json \
   "$merchant_address" \
-  --value "$FUND_VALUE"
+  --value "$FUND_VALUE")
+fund_tx_hash=$(echo "$fund_out" | jq -r '.transactionHash // empty')
+if [ -z "$fund_tx_hash" ] || [ "$fund_tx_hash" = "null" ]; then
+  echo "Failed to parse funding transaction hash:" >&2
+  echo "$fund_out" >&2
+  exit 1
+fi
+cast receipt --rpc-url "$RPC_URL" "$fund_tx_hash" >/dev/null
 
 echo "MERCHANT_ADDRESS=$merchant_address" > "$OUTPUT_FILE"
 echo "MERCHANT_PRIVATE_KEY=$merchant_private" >> "$OUTPUT_FILE"
 echo "MERCHANT_RELAY_URL=$RELAY_URL" >> "$OUTPUT_FILE"
-echo "VITE_PORTO_MERCHANT_URL=$MERCHANT_API_URL" >> "$OUTPUT_FILE"
+if [[ -n "$MERCHANT_API_URL" ]]; then
+  echo "VITE_PORTO_MERCHANT_URL=$MERCHANT_API_URL" >> "$OUTPUT_FILE"
+fi
 
 echo "Merchant address: $merchant_address"
 echo "Credentials written to $OUTPUT_FILE"
@@ -126,17 +141,19 @@ if [[ -z "$auth_to" || -z "$auth_data" || "$auth_to" == "null" || "$auth_data" =
   exit 1
 fi
 
+merchant_tx_nonce=$(cast nonce --rpc-url "$RPC_URL" --block pending "$merchant_address")
+auth_nonce=$((merchant_tx_nonce + 1))
 auth_list=$(
   cast wallet sign-auth \
     --private-key "$merchant_private" \
-    --nonce 0 \
-    --chain 0 \
+    --nonce "$auth_nonce" \
+    --chain "$chain_id_dec" \
     "$delegation_proxy"
 )
 
 cast send \
   --rpc-url "$RPC_URL" \
-  --private-key "$DEPLOYER_PRIVATE_KEY" \
+  --private-key "$merchant_private" \
   --gas-price "${MERCHANT_DELEGATION_GAS_PRICE:-1gwei}" \
   --priority-gas-price "${MERCHANT_DELEGATION_PRIORITY_GAS_PRICE:-1gwei}" \
   --gas-limit "${MERCHANT_DELEGATION_GAS_LIMIT:-5000000}" \

@@ -28,7 +28,7 @@ USAGE
 RPC_URL=${GWYNETH_RPC_URL:-http://localhost:32002}
 ADDRESSES_FILE="config/gwyneth-addresses.json"
 MNEMONIC=${RELAY_MNEMONIC:-"test test test test test test test test test test test junk"}
-SIGNER_COUNT=16
+SIGNER_COUNT=1
 START_INDEX=0
 PREFUND_AMOUNT="0"
 PRINT_SIGNERS=false

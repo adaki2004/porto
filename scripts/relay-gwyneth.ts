@@ -54,17 +54,43 @@ async function main() {
   config.funder = addresses.contracts.funder
   config.escrow = addresses.contracts.escrow
 
+  const quoteTtlEnv =
+    process.env.RELAY_QUOTE_TTL_SECS ?? process.env.MERCHANT_TTL_SECS
+  const rateTtlEnv = process.env.RELAY_RATE_TTL_SECS
+  if (!config.quote) config.quote = {}
+  if (quoteTtlEnv) {
+    const ttl = Number(quoteTtlEnv)
+    if (!Number.isNaN(ttl) && ttl > 0) {
+      config.quote.ttl = ttl
+      console.log(`⏱️  Relay quote TTL override: ${ttl}s`)
+    }
+  }
+  if (rateTtlEnv) {
+    const ttl = Number(rateTtlEnv)
+    if (!Number.isNaN(ttl) && ttl > 0) {
+      config.quote.rateTtl = ttl
+      console.log(`⏱️  Relay rate TTL override: ${ttl}s`)
+    }
+  }
+
   const chainIdKey = String(
     addresses.chainId ?? process.env.GWYNETH_CHAIN_ID ?? '160010',
   )
-  const rpcForDocker =
-    process.env.GWYNETH_RPC_URL_DOCKER ||
-    process.env.GWYNETH_RPC_URL ||
-    'http://localhost:32002'
-  const routerForDocker =
-    process.env.GWYNETH_ROUTER_URL_DOCKER ||
-    process.env.GWYNETH_ROUTER_URL ||
-    'http://localhost:32005'
+  const signerCount =
+    Number(process.env.RELAY_NUM_SIGNERS ?? '') ||
+    Number(process.env.RELAY_SIGNER_COUNT ?? '') ||
+    1
+  const useDocker = process.env.USE_DOCKER_RELAY === 'true'
+  const rpcForDocker = useDocker
+    ? process.env.GWYNETH_RPC_URL_DOCKER ||
+      process.env.GWYNETH_RPC_URL ||
+      'http://localhost:32002'
+    : process.env.GWYNETH_RPC_URL || 'http://localhost:32002'
+  const routerForDocker = useDocker
+    ? process.env.GWYNETH_ROUTER_URL_DOCKER ||
+      process.env.GWYNETH_ROUTER_URL ||
+      'http://localhost:32005'
+    : process.env.GWYNETH_ROUTER_URL || 'http://localhost:32005'
 
   const existingChainConfig = config.chains?.[chainIdKey] ?? {}
   config.chains = {
@@ -78,6 +104,9 @@ async function main() {
         existingChainConfig.eth_send_raw_delegates?.length > 0
           ? existingChainConfig.eth_send_raw_delegates
           : [routerForDocker],
+      signers: existingChainConfig.signers ?? {
+        num_signers: signerCount,
+      },
     },
   }
 
@@ -100,7 +129,6 @@ async function main() {
   console.log()
 
   // Check if we should use Docker or local relay
-  const useDocker = process.env.USE_DOCKER_RELAY === 'true'
   const dockerPlatform = process.env.RELAY_DOCKER_PLATFORM || 'linux/amd64'
 
   const commonArgs = [

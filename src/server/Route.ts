@@ -293,10 +293,19 @@ export function merchant(options: merchant.Options) {
               },
             ],
           })
-          const { typedData } = z.decode(
+          const decoded = z.decode(
             MerchantSchema.wallet_prepareCalls.Response,
             result,
           )
+          const { typedData } = decoded
+          const ttl = decoded.context?.quote?.ttl
+          if (ttl !== undefined) {
+            const nowSecs = Math.floor(Date.now() / 1000)
+            const ttlSecs = typeof ttl === 'number' ? ttl : Number(ttl)
+            console.warn(
+              `[merchant] prepareCalls ttl=${ttlSecs} now=${nowSecs} delta=${ttlSecs - nowSecs}`,
+            )
+          }
 
           const signature = sponsor
             ? await Key.sign(key, {

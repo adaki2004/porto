@@ -9,11 +9,13 @@ server:
 
 chains:
   "160010":
-    endpoint: http://host.docker.internal:32002
+    endpoint: http://127.0.0.1:32002
     # When running against a Gwyneth node with the in-node AA pool, delegate only raw tx submission
     # to the Gwyneth router so intents stay private and are sequenced by ULTRA.
     eth_send_raw_delegates:
-      - http://host.docker.internal:32005
+      - http://127.0.0.1:32005
+    signers:
+      num_signers: 1
     assets:
       ethereum:
         address: "0x0000000000000000000000000000000000000000"
@@ -26,12 +28,12 @@ quote:
   gas:
     intentBuffer: 100000
     txBuffer: 100000
-  ttl: 30
+  ttl: 300
   rateTtl: 300
 
 # Transaction management
 transactions:
-  num_signers: 16
+  num_signers: 1
   max_pending_transactions: 100
   max_transactions_per_signer: 16
   max_queued_per_eoa: 1
@@ -39,7 +41,7 @@ transactions:
   nonce_check_interval: 60
   transaction_timeout: 60
   public_node_endpoints: 
-    "160010": http://host.docker.internal:32002
+    "160010": http://127.0.0.1:32002
   priority_fee_percentile: 20.0
 
 # Contract addresses (will be populated after deployment)

@@ -1,3 +1,5 @@
+import { gwynethDemoTokens } from '../../../src/chains/gwyneth-contracts.ts'
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ERC20
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1004,7 +1006,7 @@ export const exp1Abi = [
   { type: 'error', inputs: [], name: 'Unauthorized' },
 ] as const
 
-export const exp1Address = '0x655f6a4537e30e7281c6837d88a497fbbda7fe4b' as const
+export const exp1Address = gwynethDemoTokens.exp1
 
 export const exp1Config = { address: exp1Address, abi: exp1Abi } as const
 
@@ -1309,7 +1311,7 @@ export const exp2Abi = [
   { type: 'error', inputs: [], name: 'Unauthorized' },
 ] as const
 
-export const exp2Address = '0x7C61733E8a9c6Dac20afeB46e9c4ba96C5A9f7cf' as const
+export const exp2Address = gwynethDemoTokens.exp2
 
 export const exp2Config = { address: exp2Address, abi: exp2Abi } as const
 
@@ -1631,7 +1633,6 @@ export const expNftAbi = [
   { type: 'error', inputs: [], name: 'Unauthorized' },
 ] as const
 
-export const expNftAddress =
-  '0x2a7B2023e4279bF5909785652AB51c9F821344e0' as const
+export const expNftAddress = gwynethDemoTokens.nft
 
 export const expNftConfig = { address: expNftAddress, abi: expNftAbi } as const
