@@ -11,6 +11,7 @@ of truth until we discover a better flow.
 
 - Gwyneth node listening on `http://localhost:32002` with a funded deployer EOA.  
   Export the key via `.env.gwyneth` → `DEPLOYER_PRIVATE_KEY`.
+- Gwyneth router listening on `http://localhost:32005` (required for AA pool mode).
 - Node.js ≥ 22.5 and pnpm ≥ 10 available via `nvm`.
 - Docker Desktop running (relay container).
 - Project dependencies installed (`pnpm install`).
@@ -91,6 +92,15 @@ That single call:
 
 We consistently get logs only when starting the container ourselves. From the
 repo root (with `.env.gwyneth` sourced as above):
+
+### 4.0 AA pool mode (recommended on Gwyneth)
+
+Gwyneth uses an in-node AA pool (“alternate mempool”). To ensure Porto intents are *sequenced* by
+the ULTRA builder (and don’t hit the canonical L1 txpool), configure the relay to:
+- keep normal RPC reads/calls/traces pointed at the **L1 RPC** (`http://host.docker.internal:32002`)
+- delegate **only** `eth_sendRawTransaction` to the **router** (`http://host.docker.internal:32005`)
+
+This is controlled by `chains.160010.eth_send_raw_delegates` in `config/relay-gwyneth-runtime.yaml`.
 
 ```bash
 docker rm -f porto-relay-gwyneth >/dev/null 2>&1

@@ -1,12 +1,12 @@
+import { createConfig, http } from 'wagmi'
 import { relay } from '../../../src/core/Mode.ts'
 import { porto } from '../../../src/wagmi/index.ts'
-import { createConfig, http } from 'wagmi'
 import { gwyneth } from './gwyneth.ts'
 
-const relayUrl = 'http://localhost:9119'
-const rpcUrl = 'http://localhost:32002'
+export const relayUrl = 'http://localhost:9119'
+export const rpcUrl = 'http://localhost:32002'
 
-const merchantUrl = (() => {
+export const merchantUrl = (() => {
   const configured = import.meta.env.VITE_PORTO_MERCHANT_URL as
     | string
     | undefined
@@ -16,12 +16,15 @@ const merchantUrl = (() => {
   return '/porto/merchant'
 })()
 
+export const onboardUrl = merchantUrl.replace(/\/merchant\/?$/, '/onboard')
+
 const webAuthn =
   typeof window !== 'undefined' &&
   typeof navigator !== 'undefined' &&
   navigator.credentials
     ? {
-        async createFn(options: CredentialCreationOptions) {
+        async createFn(options?: CredentialCreationOptions) {
+          if (!options) return null
           const publicKey = options.publicKey
           if (publicKey) {
             publicKey.authenticatorSelection = {
@@ -31,11 +34,10 @@ const webAuthn =
               residentKey: 'required',
               userVerification: 'required',
             }
-            publicKey.userVerification = 'required'
           }
           return navigator.credentials.create(options)
         },
-        getFn: navigator.credentials.get.bind(navigator.credentials) as any,
+        getFn: navigator.credentials.get.bind(navigator.credentials),
       }
     : undefined
 
@@ -43,10 +45,10 @@ export const config = createConfig({
   chains: [gwyneth],
   connectors: [
     porto({
+      merchantUrl,
       mode: relay({
         webAuthn,
       }),
-      merchantUrl,
       relay: http(relayUrl),
     }),
   ],

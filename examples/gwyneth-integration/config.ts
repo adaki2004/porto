@@ -7,19 +7,18 @@ export const config = createConfig({
   chains: [gwyneth],
   connectors: [
     porto({
-      // Optional: Custom relay URL for local development
-      relayUrl: 'http://localhost:9119',
-      
       // Optional: Custom dialog URL for local development
       dialogUrl: 'http://localhost:5175/dialog',
-      
+      // Optional: Custom relay URL for local development
+      relayUrl: 'http://localhost:9119',
+
       // Optional: Custom theme
       theme: {
         accent: '#007AFF',
         background: '#FFFFFF',
         text: '#000000',
-      }
-    })
+      },
+    }),
   ],
   multiInjectedProviderDiscovery: false,
   ssr: true,
