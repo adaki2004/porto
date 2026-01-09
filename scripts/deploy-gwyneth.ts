@@ -148,7 +148,9 @@ async function main() {
     }
 
     if (!receipt.contractAddress) {
-      throw new Error(`Deploy ${args.name} missing contractAddress (tx: ${hash})`)
+      throw new Error(
+        `Deploy ${args.name} missing contractAddress (tx: ${hash})`,
+      )
     }
 
     const deployedCode = await publicClient.getBytecode({

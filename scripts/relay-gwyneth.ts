@@ -23,10 +23,7 @@ async function main() {
   const thisDir = dirname(fileURLToPath(import.meta.url))
 
   // Check if contracts are deployed
-  const addressesPath = resolve(
-    thisDir,
-    '../config/gwyneth-addresses.json',
-  )
+  const addressesPath = resolve(thisDir, '../config/gwyneth-addresses.json')
   if (!existsSync(addressesPath)) {
     console.error('❌ Contracts not deployed yet!')
     console.error('Run "pnpm deploy:gwyneth" first to deploy the contracts.')
@@ -41,10 +38,7 @@ async function main() {
   console.log()
 
   // Update relay configuration with deployed addresses
-  const configPath = resolve(
-    thisDir,
-    '../config/relay-gwyneth.yaml',
-  )
+  const configPath = resolve(thisDir, '../config/relay-gwyneth.yaml')
   const config = parse(readFileSync(configPath, 'utf-8'))
 
   // Update contract addresses in config

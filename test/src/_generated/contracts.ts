@@ -785,6 +785,13 @@ export const exp1Abi = [
   },
   {
     type: 'function',
+    inputs: [],
+    name: 'gwynethForwarder',
+    outputs: [],
+    stateMutability: 'payable',
+  },
+  {
+    type: 'function',
     inputs: [
       { name: 'recipient', internalType: 'address', type: 'address' },
       { name: 'value', internalType: 'uint256', type: 'uint256' },
@@ -1116,6 +1123,13 @@ export const exp2Abi = [
     name: 'decimals',
     outputs: [{ name: '', internalType: 'uint8', type: 'uint8' }],
     stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'gwynethForwarder',
+    outputs: [],
+    stateMutability: 'payable',
   },
   {
     type: 'function',

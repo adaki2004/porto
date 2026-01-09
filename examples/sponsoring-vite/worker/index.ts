@@ -41,23 +41,26 @@ router.hono.post('/onboard', async (c) => {
   const publicClient = createPublicClient({ transport: http(rpcUrl) })
   const codeBefore = await publicClient.getCode({ address })
   if (codeBefore?.startsWith('0xef0100')) {
-    return c.json({ ok: true, alreadyDelegated: true, code: codeBefore })
+    return c.json({ alreadyDelegated: true, code: codeBefore, ok: true })
   }
 
   const relayResp = await fetch(relayUrl, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      jsonrpc: '2.0',
       id: 1,
+      jsonrpc: '2.0',
       method: 'wallet_getAuthorization',
       params: [{ address }],
     }),
+    headers: { 'content-type': 'application/json' },
+    method: 'POST',
   })
   const relayJson = (await relayResp.json()) as any
   if (relayJson?.error) {
     return c.json(
-      { error: relayJson.error?.message ?? 'relay wallet_getAuthorization failed' },
+      {
+        error:
+          relayJson.error?.message ?? 'relay wallet_getAuthorization failed',
+      },
       502,
     )
   }
@@ -66,7 +69,10 @@ router.hono.post('/onboard', async (c) => {
   const to = relayJson?.result?.to
   const data = relayJson?.result?.data
   if (!authorization || !to || !data) {
-    return c.json({ error: 'relay returned empty authorization tx fields' }, 502)
+    return c.json(
+      { error: 'relay returned empty authorization tx fields' },
+      502,
+    )
   }
 
   const merchant = privateKeyToAccount(env.MERCHANT_PRIVATE_KEY)
@@ -78,8 +84,8 @@ router.hono.post('/onboard', async (c) => {
   const gas = BigInt(body?.gas ?? 5_000_000)
   const authorizationList = [
     {
-      chainId: Number(authorization.chainId),
       address: authorization.address,
+      chainId: Number(authorization.chainId),
       nonce: Number(authorization.nonce),
       r: authorization.r,
       s: authorization.s,
@@ -89,12 +95,12 @@ router.hono.post('/onboard', async (c) => {
 
   const hash = await walletClient.sendTransaction({
     authorizationList,
-    to,
     data,
-    value: 0n,
     gas,
     maxFeePerGas: 1_000_000_000n,
     maxPriorityFeePerGas: 1_000_000_000n,
+    to,
+    value: 0n,
   })
 
   const receipt = await publicClient
@@ -103,10 +109,10 @@ router.hono.post('/onboard', async (c) => {
   const codeAfter = await publicClient.getCode({ address })
 
   return c.json({
-    ok: true,
-    hash,
-    status: receipt?.status ?? 'unknown',
     code: codeAfter,
+    hash,
+    ok: true,
+    status: receipt?.status ?? 'unknown',
   })
 })
 

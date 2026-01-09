@@ -187,7 +187,8 @@ export function merchant(options: merchant.Options) {
             if (!sponsor) return
             if (key.type !== 'secp256k1') return
 
-            const chainIdHex = request.params[0]!.chainId.toLowerCase() as Hex.Hex
+            const chainIdHex =
+              request.params[0]!.chainId.toLowerCase() as Hex.Hex
             const chainId = Number(Hex.toBigInt(chainIdHex))
             if (!Number.isFinite(chainId) || chainId <= 0) return
 
@@ -221,10 +222,10 @@ export function merchant(options: merchant.Options) {
 
               const authorizeKey = {
                 expiry: 0,
-                type: 'secp256k1',
-                role: 'admin',
-                publicKey: Key.serializePublicKey(key.publicKey),
                 permissions: [],
+                publicKey: Key.serializePublicKey(key.publicKey),
+                role: 'admin',
+                type: 'secp256k1',
               }
 
               const prep = (await client.request({
@@ -232,9 +233,9 @@ export function merchant(options: merchant.Options) {
                 params: [
                   {
                     address,
+                    capabilities: { authorizeKeys: [authorizeKey] },
                     chainId,
                     delegation,
-                    capabilities: { authorizeKeys: [authorizeKey] },
                   },
                 ],
               } as any)) as any
@@ -280,7 +281,6 @@ export function merchant(options: merchant.Options) {
                 ...request.params[0]!,
                 capabilities: {
                   ...request.params[0]!.capabilities,
-                  requiredFunds,
                   meta: {
                     ...request.params[0]!.capabilities.meta,
                     ...(sponsor
@@ -289,6 +289,7 @@ export function merchant(options: merchant.Options) {
                         }
                       : {}),
                   },
+                  requiredFunds,
                 },
               },
             ],

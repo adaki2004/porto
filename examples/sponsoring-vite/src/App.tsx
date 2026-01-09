@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import {
   type Address,
   createPublicClient,
@@ -6,7 +7,6 @@ import {
   parseEther,
   UserRejectedRequestError,
 } from 'viem'
-import { useEffect, useState } from 'react'
 import {
   type BaseError,
   useAccount,
@@ -16,8 +16,8 @@ import {
   useSendCalls,
   useWaitForCallsStatus,
 } from 'wagmi'
-import { exp1Address, exp1Config } from './contracts'
 import { onboardUrl, relayUrl } from './config'
+import { exp1Address, exp1Config } from './contracts'
 import { gwyneth } from './gwyneth'
 
 export function App() {
@@ -41,7 +41,9 @@ function Account() {
   const account = useAccount()
   const disconnect = useDisconnect()
   const [codeNonEmpty, setCodeNonEmpty] = useState<boolean | null>(null)
-  const [hasRelayAuthorization, setHasRelayAuthorization] = useState<boolean | null>(null)
+  const [hasRelayAuthorization, setHasRelayAuthorization] = useState<
+    boolean | null
+  >(null)
   const [onboardError, setOnboardError] = useState<string | null>(null)
   const [onboardTx, setOnboardTx] = useState<string | null>(null)
   const [isOnboarding, setIsOnboarding] = useState(false)
@@ -60,14 +62,14 @@ function Account() {
     })
 
     void fetch(relayUrl, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        jsonrpc: '2.0',
         id: 1,
+        jsonrpc: '2.0',
         method: 'wallet_getAuthorization',
         params: [{ address }],
       }),
+      headers: { 'content-type': 'application/json' },
+      method: 'POST',
     })
       .then(async (r) => {
         const j = (await r.json()) as any
@@ -87,9 +89,9 @@ function Account() {
     setIsOnboarding(true)
     try {
       const resp = await fetch(onboardUrl, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ address }),
+        headers: { 'content-type': 'application/json' },
+        method: 'POST',
       })
       const json = (await resp.json().catch(() => null)) as any
       if (!resp.ok) {
@@ -122,11 +124,7 @@ function Account() {
         status: {account.status}
         <br />
         `eth_getCode` non-empty:{' '}
-        {codeNonEmpty === null
-          ? '(checking...)'
-          : codeNonEmpty
-            ? 'yes'
-            : 'no'}
+        {codeNonEmpty === null ? '(checking...)' : codeNonEmpty ? 'yes' : 'no'}
         <br />
         prepared (relay auth):{' '}
         {hasRelayAuthorization === null
@@ -144,7 +142,11 @@ function Account() {
 
       {account.address && hasRelayAuthorization && codeNonEmpty === false && (
         <div style={{ marginTop: 12 }}>
-          <button disabled={isOnboarding} onClick={() => void handleOnboard()} type="button">
+          <button
+            disabled={isOnboarding}
+            onClick={() => void handleOnboard()}
+            type="button"
+          >
             {isOnboarding ? 'Onboarding...' : 'Onboard (delegate onchain)'}
           </button>
           {onboardTx && <div>Onboard tx: {onboardTx}</div>}
@@ -167,14 +169,14 @@ function Connect() {
     const relayHasAuthorization = async (address: Address) => {
       try {
         const r = await fetch(relayUrl, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
-            jsonrpc: '2.0',
             id: 1,
+            jsonrpc: '2.0',
             method: 'wallet_getAuthorization',
             params: [{ address }],
           }),
+          headers: { 'content-type': 'application/json' },
+          method: 'POST',
         })
         const j = (await r.json()) as any
         return !!j?.result
@@ -194,9 +196,9 @@ function Connect() {
 
       setStatus('Onboarding (delegating onchain)...')
       const resp = await fetch(onboardUrl, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ address }),
+        headers: { 'content-type': 'application/json' },
+        method: 'POST',
       })
       const json = (await resp.json().catch(() => null)) as any
       if (!resp.ok) {
@@ -217,18 +219,16 @@ function Connect() {
       // Prefer creating a fresh account on this chain. This avoids the common case where
       // `selectAccount` returns an account remembered from a previous devnet run.
       setStatus('Creating account...')
-      const created = await connectAsync(
-        {
-          capabilities: {
-            createAccount: {
-              chainId: gwyneth.id,
-            },
-            selectAccount: false,
+      const created = await connectAsync({
+        capabilities: {
+          createAccount: {
+            chainId: gwyneth.id,
           },
-          chainId: gwyneth.id,
-          connector,
-        } as any,
-      )
+          selectAccount: false,
+        },
+        chainId: gwyneth.id,
+        connector,
+      } as any)
 
       createdAddress = created.accounts?.[0] as Address | undefined
       if (createdAddress) {
@@ -252,15 +252,13 @@ function Connect() {
     // Fallback: select an existing account and verify it is upgraded on this chain.
     try {
       setStatus('Selecting existing account...')
-      await connectAsync(
-        {
-          capabilities: {
-            selectAccount: true,
-          },
-          chainId: gwyneth.id,
-          connector,
-        } as any,
-      )
+      await connectAsync({
+        capabilities: {
+          selectAccount: true,
+        },
+        chainId: gwyneth.id,
+        connector,
+      } as any)
       const [address] = (await connector.getAccounts()) as Address[]
       if (address && !(await relayHasAuthorization(address)))
         throw new Error('Selected account missing relay authorization')
@@ -346,14 +344,14 @@ function Mint() {
     const poll = async () => {
       try {
         const resp = await fetch(relayUrl, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
-            jsonrpc: '2.0',
             id: 1,
+            jsonrpc: '2.0',
             method: 'wallet_getCallsStatus',
             params: [id],
           }),
+          headers: { 'content-type': 'application/json' },
+          method: 'POST',
         })
         const json = (await resp.json()) as any
         if (cancelled) return
