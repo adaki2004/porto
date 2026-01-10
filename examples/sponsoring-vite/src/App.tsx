@@ -326,16 +326,19 @@ function Mint() {
   const { data, error, isPending, sendCalls } = useSendCalls()
   const [bundleStatus, setBundleStatus] = useState<number | null>(null)
   const [bundleReceipts, setBundleReceipts] = useState<number | null>(null)
+  const [bundleTxHash, setBundleTxHash] = useState<string | null>(null)
   const [bundleError, setBundleError] = useState<string | null>(null)
 
   const { isLoading: isConfirming, isSuccess: isConfirmed } =
     useWaitForCallsStatus({
       id: data?.id,
+      timeout: 180_000,
     })
 
   useEffect(() => {
     setBundleStatus(null)
     setBundleReceipts(null)
+    setBundleTxHash(null)
     setBundleError(null)
     const id = data?.id
     if (!id) return
@@ -362,7 +365,11 @@ function Mint() {
         const status = json?.result?.status
         const receipts = json?.result?.receipts
         if (typeof status === 'number') setBundleStatus(status)
-        if (Array.isArray(receipts)) setBundleReceipts(receipts.length)
+        if (Array.isArray(receipts)) {
+          setBundleReceipts(receipts.length)
+          const txHash = receipts[0]?.transactionHash
+          if (typeof txHash === 'string') setBundleTxHash(txHash)
+        }
         if (typeof status === 'number' && status !== 100) return
       } catch (e) {
         if (!cancelled) setBundleError((e as Error).message)
@@ -405,9 +412,13 @@ function Mint() {
           {bundleReceipts !== null ? ` (receipts: ${bundleReceipts})` : ''}
         </div>
       )}
+      {bundleTxHash && <div>Tx: {bundleTxHash}</div>}
       {bundleError && <div>Relay status error: {bundleError}</div>}
-      {isConfirming && 'Waiting for confirmation...'}
-      {isConfirmed && 'Transaction confirmed.'}
+      {(bundleStatus === null ? isConfirming : bundleStatus === 100) &&
+        'Waiting for confirmation...'}
+      {(isConfirmed || (bundleStatus !== null && bundleStatus >= 200)) &&
+        'Transaction confirmed.'}
+      {bundleStatus !== null && bundleStatus >= 300 && 'Transaction failed.'}
       {error && (
         <div>Error: {(error as BaseError).shortMessage || error.message}</div>
       )}
