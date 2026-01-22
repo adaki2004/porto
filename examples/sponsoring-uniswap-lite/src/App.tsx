@@ -767,9 +767,9 @@ export function App() {
                     </div>
                   )}
                   <div className="notice">
-                    L1 swaps call `UniswapV2Router02`.
-                    {' '}
-                    L2A swaps call `UniswapPortal.swapExactTokensForTokens(...)` which performs the L1 swap and bridges outputs back.
+                    L1 swaps call `UniswapV2Router02`. L2A swaps call
+                    `UniswapPortal.swapExactTokensForTokens(...)` which performs
+                    the L1 swap and bridges outputs back.
                   </div>
                 </>
               ) : (
