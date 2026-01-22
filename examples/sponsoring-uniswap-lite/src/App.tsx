@@ -23,7 +23,6 @@ import {
   erc20Abi,
   TOKENS,
   type TokenKey,
-  UNISWAP_DEPLOYMENT,
   UNISWAP_V2,
   uniswapPortalAbi,
   uniswapV2FactoryAbi,
@@ -132,14 +131,15 @@ export function App() {
     }
   }, [swapAmountIn, tokenInMeta.decimals])
 
-  const l2PortalEnabled =
-    UNISWAP_DEPLOYMENT === 'l1_l2a_matched' && activeChain?.id === gwynethL2A.id
+  const l2PortalEnabled = activeChain?.id === gwynethL2A.id
 
   const balancesQuery = useQuery({
     enabled:
       !!account.address &&
       !!activeClient &&
-      (activeChain?.id === gwynethL1.id || l2PortalEnabled),
+      (activeChain?.id === gwynethL1.id ||
+        activeChain?.id === gwynethL2A.id ||
+        activeChain?.id === gwynethL2B.id),
     queryFn: async () => {
       if (!account.address) throw new Error('Missing address')
       if (!activeClient) throw new Error('Missing active client')
@@ -415,9 +415,7 @@ export function App() {
       if (!l2PortalEnabled) {
         setSwapStage('error')
         setSwapError(
-          activeChain?.id === gwynethL2B.id
-            ? 'L2B Portal swap is not supported yet. Switch to L2A or L1.'
-            : 'L2 Portal swap is disabled for the L1-only deterministic deployment.',
+          'Portal swaps are only supported on L2A (167010) right now. Switch to L2A or L1.',
         )
         return
       }
@@ -749,7 +747,7 @@ export function App() {
                     <div className="notice">
                       {l2PortalEnabled
                         ? 'Swap executes on L1 via `UniswapPortal` and returns the output token to this L2. Ensure you have token balance + ETH for gas on this chain.'
-                        : 'Portal swaps are disabled unless you deploy the matched L1+L2A contract set.'}
+                        : 'Portal swaps are only supported on L2A (167010) right now.'}
                     </div>
                   ) : null}
                   {isOnL1 ? (
@@ -770,9 +768,8 @@ export function App() {
                   )}
                   <div className="notice">
                     L1 swaps call `UniswapV2Router02`.
-                    {UNISWAP_DEPLOYMENT === 'l1_l2a_matched'
-                      ? ' L2A swaps call `UniswapPortal.swapExactTokensForTokens(...)` which performs the L1 swap and bridges outputs back.'
-                      : ' Portal swaps are disabled until the matched L1+L2A deployment is used.'}
+                    {' '}
+                    L2A swaps call `UniswapPortal.swapExactTokensForTokens(...)` which performs the L1 swap and bridges outputs back.
                   </div>
                 </>
               ) : (
